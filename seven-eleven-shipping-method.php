@@ -3,7 +3,7 @@
 Plugin Name: WooCommerce 7-11 Shipping Method
 Plugin URI: https://modnat.com.tw
 Description: 7-11 Shipping Method for WooCommerce
-Version: 1.0.0
+Version: 1.0.1
 Author: Modern Nature
 Author URI: https://modnat.com.tw
 */
@@ -23,7 +23,6 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 	add_action('woocommerce_shipping_init', 'seven_eleven_shipping_method');
 	function seven_eleven_shipping_method() {
 		require_once("class-seven-eleven-shipping-method.php");
-		wc_seven_eleven_init();
 	}
 
 	/*
@@ -31,7 +30,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 	 */
 	add_filter('woocommerce_shipping_methods', 'custom_add_seven_eleven_shipping_method');
 	function custom_add_seven_eleven_shipping_method($methods) {
-        $methods[] = 'WC_Seven_Eleven_Shipping_Method';
+        $methods['seven_eleven_shipping_method'] = 'WC_Seven_Eleven_Shipping_Method';
         return $methods;
     }
 
@@ -100,6 +99,124 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 		}
 
 	    return $replacements;
+	}
+
+	/*
+	 * Adds custom checkout fields to store custom shipping method specific info.
+	 */
+	add_filter('woocommerce_checkout_fields', 'custom_override_checkout_fields');
+	function custom_override_checkout_fields($fields) {
+		$fields['billing']['store_id'] = array(
+			'default'       => '',
+			'label'         => 'Store Id',
+			'class'         => array('hidden'),
+			'label_class'   => array('hidden')
+		);
+		$fields['billing']['store_name'] = array(
+			'default'       => '',
+			'label'         => 'Store Name',
+			'clear'         => true
+		);
+		$fields['billing']['store_address'] = array(
+			'default'       => '',
+			'label'         => 'Store Address',
+			'clear'         => true
+		);
+
+		return $fields;
+	}
+
+	/*
+	 * Add custom html to display shipping method map.
+	 */
+	add_action('woocommerce_review_order_after_shipping', 'action_woocommerce_add_map_after_shipping');
+	function action_woocommerce_add_map_after_shipping() {
+		// Get TW shipping zone
+		$packages = WC()->cart->get_shipping_packages();
+		foreach ( $packages as $i => $package ) {
+			if ($package['destination']['country'] === 'TW') {
+				$zone = WC_Shipping_Zones::get_zone_matching_package($package);
+				break;
+			}
+		}
+
+		// Hide fields if zone not set
+		if (!isset($zone)) {
+			hide_custom_fields();
+			return;
+		}
+
+		// Display html form for map
+		$chosen_method = WC()->session->get('chosen_shipping_methods');
+		if ($chosen_method[0] === "seven_eleven_shipping_method") {
+			$chosen_method_object = get_chosen_shipping_method_instance($zone, $chosen_method[0]);
+
+			$html = $chosen_method_object->get_map_form_html();
+
+			echo '
+			<tr class="shipping_option">
+			<th>' . $chosen_method_object->title . '</th>
+			<td>
+			'.$html.'
+			</td>
+			</tr>
+			';
+
+			?>
+			<script type="text/javascript">
+				if (document.getElementById("__paymentButton") !== null
+					&& typeof document.getElementById("__paymentButton") !== "undefined") {
+					document.getElementById("__paymentButton").onclick = function() {
+						map = window.open("", "mapForm", "width=1000,height=600,toolbar=0");
+						if (map) {
+							document.getElementById("mapFormId").submit();
+						}
+					};
+				}
+			</script>
+			<?php
+		}
+
+		// Set existing store id
+		parse_str($_POST['post_data'], $post_data);
+		if (isset($post_data['store_id']) && $post_data['store_id'] !== ''
+				&& $chosen_method[0] === "seven_eleven_shipping_method") {
+			?>
+			<script type="text/javascript">
+				document.getElementById("storeid").value = "<?php echo $post_data['store_id'];?>";
+			</script>
+			<?php
+		} else {
+			hide_custom_fields();
+		}
+	}
+
+	/*
+	 * Javascript to hide custom fields.
+	 */
+	function hide_custom_fields() {
+		?>
+		<script type="text/javascript">
+			document.getElementById('store_id').setAttribute("readonly", true);
+			document.getElementById('store_id_field').style.display = 'none';
+			document.getElementById('store_name').setAttribute("readonly", true);
+			document.getElementById('store_name_field').style.display = 'none';
+			document.getElementById('store_address').setAttribute("readonly", true);
+			document.getElementById('store_address_field').style.display = 'none';
+		</script>
+		<?php
+	}
+
+	/*
+	 * Gets the shipping method instance of the current chosen shipping method.
+	 */
+	function get_chosen_shipping_method_instance($zone, $chosen_method) {
+		$shipping_methods = $zone->get_shipping_methods();
+		foreach ($shipping_methods as $shipping_method) {
+			if ($shipping_method->id === $chosen_method) {
+				return $shipping_method;
+			}
+	    }
 	}
 
 }

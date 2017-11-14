@@ -19,7 +19,7 @@ class SevenElevenForm {
 	/*
 	 * Constructs the form html for the 7-11 map button.
 	 */
-	public function SevenElevenMap($ButtonDesc = '選擇7-11門市', $Target = 'sevenElevenForm') {
+	public function SevenElevenMap($ButtonDesc = '選擇7-11門市', $Target = 'mapForm') {
 		return $this->GenPostHTML($ButtonDesc, $Target);
 	}
 
@@ -35,14 +35,14 @@ class SevenElevenForm {
 	 */
 	private function GenPostHTML($ButtonDesc = '', $Target = '_self') {
 		$PostHTML = $this->AddNextLine('<div style="text-align:center;">');
-		$PostHTML .= $this->AddNextLine('  <form id="SevenElevenForm" method="POST" action="' . $this->ServiceURL . '" target="' . $Target . '">');
+		$PostHTML .= $this->AddNextLine('  <form id="mapFormId" method="POST" action="' . $this->ServiceURL . '" target="' . $Target . '">');
 		foreach ($this->PostParams as $Name => $Value) {
 			$PostHTML .= $this->AddNextLine('    <input type="hidden" id="' . $Name . '" name="' . $Name . '" value="' . $Value . '" />');
 		}
 		if (!empty($ButtonDesc)) {
 			$PostHTML .= $this->AddNextLine('    <input type="submit" id="__paymentButton" value="' . $ButtonDesc . '" />');
 		} else {
-			$PostHTML .= $this->AddNextLine('    <script>document.getElementById("SevenElevenForm").submit();</script>');
+			$PostHTML .= $this->AddNextLine('    <script>document.getElementById("'. $Target .'").submit();</script>');
 		}
 		$PostHTML .= $this->AddNextLine('  </form>');
 		$PostHTML .= $this->AddNextLine('</div>');
